@@ -356,16 +356,6 @@
 
     // ─── URL shortening ───────────────────────────────────────────────────────
 
-    async function shortenUrl(url) {
-      const res = await fetch(
-        'https://is.gd/create.php?format=json&url=' + encodeURIComponent(url)
-      );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (!data.shorturl) throw new Error(data.errormessage || 'No shorturl returned');
-      return data.shorturl;
-    }
-
     function getBaseUrl() {
       return window.location.origin + window.location.pathname.replace(/\/$/, '/');
     }
@@ -383,7 +373,6 @@
     </svg>`;
 
     const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8.5" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 10V2.5A1.5 1.5 0 012.5 1H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-    const SHORTEN_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8.5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const GENERATE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5h3l2.5 7 2-5.5L11 9.5 12.5 5H14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2l2.5 2.5L12 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9l2.5 2.5L12 14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="14.5" y1="4.5" x2="14.5" y2="11.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>`;
     const REMOVE_ICON = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 1l11 11M12 1L1 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
@@ -459,7 +448,6 @@
           <div class="output-box" id="output-url">${escHtml(generatedUrl)}</div>
           <div class="output-actions">
             <button class="btn btn-ghost" id="copy-btn">${COPY_ICON} Copy</button>
-            <button class="btn btn-ghost" id="shorten-btn">${SHORTEN_ICON} Shorten</button>
             <span class="copy-feedback" id="copy-feedback" style="display:none"></span>
           </div>
         </div>
@@ -552,11 +540,10 @@
 
     function bindOutputActions() {
       const copyBtn = document.getElementById('copy-btn');
-      const shortenBtn = document.getElementById('shorten-btn');
       const feedback = document.getElementById('copy-feedback');
       const outputUrl = document.getElementById('output-url');
 
-      if (!copyBtn || !shortenBtn) return;
+      if (!copyBtn) return;
 
       copyBtn.addEventListener('click', async () => {
         try {
@@ -564,24 +551,6 @@
           showFeedback(feedback, 'Copied!');
         } catch {
           showFeedback(feedback, 'Copy failed');
-        }
-      });
-
-      shortenBtn.addEventListener('click', async () => {
-        shortenBtn.disabled = true;
-        shortenBtn.innerHTML = `<span class="spinner" style="width:13px;height:13px;border-width:1.5px"></span> Shortening…`;
-        try {
-          const short = await shortenUrl(outputUrl.textContent.trim());
-          // Validate the shortened URL is a real https URL
-          if (!isSafeUrl(short)) throw new Error('Invalid shorturl response');
-          outputUrl.textContent = short;
-          generatedUrl = short;
-          shortenBtn.style.display = 'none';
-          showFeedback(feedback, 'Shortened!');
-        } catch {
-          shortenBtn.disabled = false;
-          shortenBtn.innerHTML = `${SHORTEN_ICON} Retry shorten`;
-          showFeedback(feedback, 'Could not shorten — full URL kept', 3000);
         }
       });
     }
