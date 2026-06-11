@@ -155,6 +155,38 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 0;
+    }
+    .weight-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    input.weight-input {
+      width: 3.25rem;
+      flex-shrink: 0;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: var(--r);
+      padding: 0.3rem 0.4rem;
+      font-size: 0.85rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s;
+      -moz-appearance: textfield;
+    }
+    input.weight-input::-webkit-outer-spin-button,
+    input.weight-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input.weight-input:focus { border-color: var(--accent); }
+    .pct-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 2.6rem;
+      text-align: right;
+      flex-shrink: 0;
     }
 
     .empty-state {
@@ -301,8 +333,10 @@
 
     // ─── Encoding ─────────────────────────────────────────────────────────────
 
-    function encodePayload(links, deterministic) {
-      const data = { l: links, d: deterministic ? 1 : 0 };
+    function encodePayload(items, deterministic) {
+      const allOne = items.every(e => e.weight === 1);
+      const l = allOne ? items.map(e => e.url) : items.map(e => [e.url, e.weight]);
+      const data = { l, d: deterministic ? 1 : 0 };
       const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
       return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     }
@@ -313,8 +347,14 @@
       const json = decodeURIComponent(escape(atob(str)));
       const data = JSON.parse(json);
       if (!Array.isArray(data.l) || data.l.length === 0) throw new Error('empty');
-      if (!data.l.every(isSafeUrl)) throw new Error('unsafe url in payload');
-      return data;
+      // Normalise: each entry is either a plain string (legacy) or [url, weight]
+      const items = data.l.map(e => {
+        if (typeof e === 'string') return { url: e, weight: 1 };
+        if (Array.isArray(e) && typeof e[0] === 'string') return { url: e[0], weight: Math.max(1, parseInt(e[1]) || 1) };
+        throw new Error('malformed entry');
+      });
+      if (!items.every(e => isSafeUrl(e.url))) throw new Error('unsafe url in payload');
+      return { items, d: data.d };
     }
 
     // ─── Seeded random ────────────────────────────────────────────────────────
@@ -348,23 +388,23 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     }
 
-    function pickLink(links, deterministic) {
-      if (!deterministic) return links[Math.floor(Math.random() * links.length)];
-      const combined = getUserSeed() + '\0' + links.join('\n');
-      return links[Math.floor(mulberry32(fnv32(combined)) * links.length)];
+    function weightedPick(items, randVal) {
+      const total = items.reduce((s, e) => s + e.weight, 0);
+      let r = randVal * total;
+      for (const e of items) {
+        r -= e.weight;
+        if (r < 0) return e.url;
+      }
+      return items[items.length - 1].url;
+    }
+
+    function pickLink(items, deterministic) {
+      if (!deterministic) return weightedPick(items, Math.random());
+      const combined = getUserSeed() + '\0' + items.map(e => e.url + ':' + e.weight).join('\n');
+      return weightedPick(items, mulberry32(fnv32(combined)));
     }
 
     // ─── URL shortening ───────────────────────────────────────────────────────
-
-    async function shortenUrl(url) {
-      const res = await fetch(
-        'https://is.gd/create.php?format=json&url=' + encodeURIComponent(url)
-      );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (!data.shorturl) throw new Error(data.errormessage || 'No shorturl returned');
-      return data.shorturl;
-    }
 
     function getBaseUrl() {
       return window.location.origin + window.location.pathname.replace(/\/$/, '/');
@@ -383,13 +423,12 @@
     </svg>`;
 
     const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8.5" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 10V2.5A1.5 1.5 0 012.5 1H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-    const SHORTEN_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8.5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const GENERATE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5h3l2.5 7 2-5.5L11 9.5 12.5 5H14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2l2.5 2.5L12 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9l2.5 2.5L12 14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="14.5" y1="4.5" x2="14.5" y2="11.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>`;
     const REMOVE_ICON = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 1l11 11M12 1L1 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
     // ─── Editor state ─────────────────────────────────────────────────────────
 
-    let links = [];
+    let links = []; // [{url, weight}]
     let deterministic = true;
     let generatedUrl = null;
 
@@ -402,7 +441,7 @@
         return;
       }
 
-      const target = pickLink(data.l, !!data.d);
+      const target = pickLink(data.items, !!data.d);
 
       document.getElementById('app').innerHTML = `
         <div class="center-view">
@@ -439,17 +478,23 @@
     function renderEditor() {
       const canGenerate = links.length >= 2;
 
+      const totalWeight = links.reduce((s, e) => s + e.weight, 0);
       const listHtml = links.length === 0
         ? `<div class="empty-state">No links yet — add at least 2 to generate a link</div>`
         : `<ul class="link-list" id="link-list">
-            ${links.map((l, i) => `
+            ${links.map((e, i) => {
+              const pct = totalWeight > 0 ? Math.round(e.weight / totalWeight * 100) : 0;
+              return `
               <li class="link-item">
-                <span class="link-item-text" title="${escHtml(l)}">${escHtml(l)}</span>
-                <button class="btn btn-icon" data-remove="${i}" title="Remove link" aria-label="Remove ${escHtml(l)}">
+                <span class="link-item-text" title="${escHtml(e.url)}">${escHtml(e.url)}</span>
+                <span class="weight-label">weight</span>
+                <input class="weight-input" type="number" min="1" max="999" value="${e.weight}" data-weight="${i}" aria-label="Weight for ${escHtml(e.url)}" />
+                <span class="pct-badge" id="pct-${i}">${pct}%</span>
+                <button class="btn btn-icon" data-remove="${i}" title="Remove link" aria-label="Remove ${escHtml(e.url)}">
                   ${REMOVE_ICON}
                 </button>
-              </li>
-            `).join('')}
+              </li>`;
+            }).join('')}
           </ul>
           <div class="link-count">${links.length} link${links.length !== 1 ? 's' : ''}</div>`;
 
@@ -459,7 +504,6 @@
           <div class="output-box" id="output-url">${escHtml(generatedUrl)}</div>
           <div class="output-actions">
             <button class="btn btn-ghost" id="copy-btn">${COPY_ICON} Copy</button>
-            <button class="btn btn-ghost" id="shorten-btn">${SHORTEN_ICON} Shorten</button>
             <span class="copy-feedback" id="copy-feedback" style="display:none"></span>
           </div>
         </div>
@@ -515,7 +559,7 @@
           setTimeout(() => input.classList.remove('invalid'), 1200);
           return;
         }
-        links.push(val);
+        links.push({ url: val, weight: 1 });
         input.value = '';
         generatedUrl = null;
         renderEditor();
@@ -530,6 +574,22 @@
         generatedUrl = null; // regenerate with new setting
       });
 
+      document.querySelectorAll('[data-weight]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const i = parseInt(inp.dataset.weight);
+          const v = Math.max(1, parseInt(inp.value) || 1);
+          links[i].weight = v;
+          inp.value = v;
+          generatedUrl = null;
+          // Update all percentage badges without full re-render
+          const total = links.reduce((s, e) => s + e.weight, 0);
+          links.forEach((e, j) => {
+            const badge = document.getElementById('pct-' + j);
+            if (badge) badge.textContent = Math.round(e.weight / total * 100) + '%';
+          });
+        });
+      });
+
       document.querySelectorAll('[data-remove]').forEach(btn => {
         btn.addEventListener('click', () => {
           links.splice(parseInt(btn.dataset.remove), 1);
@@ -540,7 +600,7 @@
 
       document.getElementById('generate-btn').addEventListener('click', () => {
         if (links.length < 2) return;
-        const payload = encodePayload(links, deterministic);
+        const payload = encodePayload(links, deterministic); // links = [{url,weight}]
         generatedUrl = getBaseUrl() + '#r=' + payload;
         renderEditor();
         document.getElementById('output-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -552,11 +612,10 @@
 
     function bindOutputActions() {
       const copyBtn = document.getElementById('copy-btn');
-      const shortenBtn = document.getElementById('shorten-btn');
       const feedback = document.getElementById('copy-feedback');
       const outputUrl = document.getElementById('output-url');
 
-      if (!copyBtn || !shortenBtn) return;
+      if (!copyBtn) return;
 
       copyBtn.addEventListener('click', async () => {
         try {
@@ -564,24 +623,6 @@
           showFeedback(feedback, 'Copied!');
         } catch {
           showFeedback(feedback, 'Copy failed');
-        }
-      });
-
-      shortenBtn.addEventListener('click', async () => {
-        shortenBtn.disabled = true;
-        shortenBtn.innerHTML = `<span class="spinner" style="width:13px;height:13px;border-width:1.5px"></span> Shortening…`;
-        try {
-          const short = await shortenUrl(outputUrl.textContent.trim());
-          // Validate the shortened URL is a real https URL
-          if (!isSafeUrl(short)) throw new Error('Invalid shorturl response');
-          outputUrl.textContent = short;
-          generatedUrl = short;
-          shortenBtn.style.display = 'none';
-          showFeedback(feedback, 'Shortened!');
-        } catch {
-          shortenBtn.disabled = false;
-          shortenBtn.innerHTML = `${SHORTEN_ICON} Retry shorten`;
-          showFeedback(feedback, 'Could not shorten — full URL kept', 3000);
         }
       });
     }
