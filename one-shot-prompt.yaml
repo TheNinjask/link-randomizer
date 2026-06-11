@@ -1,0 +1,5 @@
+main_goal: I want to make a github pages that opens a random link
+capabilities:
+  - A single web page that can also be a PWA and is hosted in github pages
+  - If accessed diretly, it should open a UI that a user can set as many links as they want, check or leave unchecked if it should be deterministic when opening, and then click a button to generate a link that will open a random one of those links, and if accessed with the generated link, it should open a random one of the links that the user set in the UI
+  - The randomness should be based on the target "user", you may create a seed in the user's local storage and that determins the random link that will be opened for that user, so that the same user will always get the same random link

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#6366f1"/>
+  <!-- Top path: left → right with arrow -->
+  <path d="M80 180 L200 180 Q310 180 380 256" stroke="white" stroke-width="36" stroke-linecap="round" fill="none"/>
+  <path d="M340 210 L390 256 L340 302" stroke="white" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Bottom path: left → right with arrow -->
+  <path d="M80 332 L200 332 Q310 332 380 256" stroke="white" stroke-width="36" stroke-linecap="round" fill="none"/>
+  <!-- Dots on left to hint at multiple sources -->
+  <circle cx="80" cy="180" r="22" fill="white"/>
+  <circle cx="80" cy="256" r="22" fill="white"/>
+  <circle cx="80" cy="332" r="22" fill="white"/>
+</svg>

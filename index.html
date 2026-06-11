@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Link Randomizer</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LinkRandom" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #293548;
+      --border: #334155;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --r: 0.5rem;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    #app {
+      background: var(--surface);
+      border-radius: 1rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 640px;
+      margin-top: 2rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    /* ── Typography ── */
+    .logo { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem; }
+    .logo svg { flex-shrink: 0; }
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+    .section-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Inputs ── */
+    .input-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+
+    input[type="url"] {
+      flex: 1;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: var(--r);
+      padding: 0.6rem 0.875rem;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="url"]:focus { border-color: var(--accent); }
+    input[type="url"]::placeholder { color: var(--muted); }
+    input[type="url"].invalid { border-color: var(--danger); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.6rem 1rem;
+      border-radius: var(--r);
+      font-size: 0.875rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--border); }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 0.35rem;
+      border-radius: var(--r);
+    }
+    .btn-icon:hover { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* ── Link list ── */
+    .section { margin-bottom: 1.5rem; }
+
+    .link-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      max-height: 260px;
+      overflow-y: auto;
+      margin-bottom: 0.25rem;
+    }
+
+    .link-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.5rem 0.625rem;
+    }
+    .link-item-text {
+      flex: 1;
+      font-size: 0.85rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding: 1.5rem;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--r);
+      margin-bottom: 0.25rem;
+    }
+
+    .link-count {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 0.25rem;
+    }
+
+    /* ── Toggle ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      padding: 0.875rem 1rem;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.15s;
+    }
+    .toggle-row:hover { border-color: var(--accent); }
+    .toggle-info { flex: 1; }
+    .toggle-title { font-size: 0.9rem; font-weight: 600; }
+    .toggle-desc { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; line-height: 1.4; }
+
+    .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 11px;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* ── Divider ── */
+    .divider { border: none; border-top: 1.5px solid var(--border); margin: 1.5rem 0; }
+
+    /* ── Output ── */
+    .output-section { margin-top: 1.5rem; }
+    .output-box {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      color: #a5b4fc;
+      word-break: break-all;
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+    .output-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .copy-feedback { font-size: 0.8rem; color: var(--success); margin-left: 0.25rem; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Redirect / Error views ── */
+    .center-view { text-align: center; padding: 3rem 1.5rem; }
+    .center-view h2 { margin: 1rem 0 0.5rem; font-size: 1.3rem; }
+    .center-view p { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+    .redirect-url {
+      margin-top: 1rem;
+      font-size: 0.78rem;
+      font-family: ui-monospace, monospace;
+      color: #a5b4fc;
+      word-break: break-all;
+      padding: 0.5rem;
+      background: var(--surface2);
+      border-radius: var(--r);
+    }
+    .error-icon { font-size: 2.5rem; }
+    .error-title { color: var(--danger); }
+    .action-gap { margin-top: 1.5rem; }
+
+    @media (max-width: 480px) {
+      #app { padding: 1.25rem; margin-top: 0.5rem; }
+      h1 { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    'use strict';
+
+    // ─── Security helpers ─────────────────────────────────────────────────────
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+    }
+
+    /** Only allow http / https URLs to prevent javascript: injection */
+    function isSafeUrl(url) {
+      try {
+        const u = new URL(url);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    // ─── Encoding ─────────────────────────────────────────────────────────────
+
+    function encodePayload(links, deterministic) {
+      const data = { l: links, d: deterministic ? 1 : 0 };
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    function decodePayload(str) {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (str.length % 4) str += '=';
+      const json = decodeURIComponent(escape(atob(str)));
+      const data = JSON.parse(json);
+      if (!Array.isArray(data.l) || data.l.length === 0) throw new Error('empty');
+      if (!data.l.every(isSafeUrl)) throw new Error('unsafe url in payload');
+      return data;
+    }
+
+    // ─── Seeded random ────────────────────────────────────────────────────────
+
+    function getUserSeed() {
+      let s = localStorage.getItem('lr_seed');
+      if (!s) {
+        const arr = new Uint32Array(4);
+        crypto.getRandomValues(arr);
+        s = Array.from(arr, n => n.toString(36)).join('');
+        localStorage.setItem('lr_seed', s);
+      }
+      return s;
+    }
+
+    /** FNV-1a 32-bit hash */
+    function fnv32(str) {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+      }
+      return h;
+    }
+
+    /** Mulberry32 single-step PRNG → [0, 1) */
+    function mulberry32(seed) {
+      seed = (seed + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+
+    function pickLink(links, deterministic) {
+      if (!deterministic) return links[Math.floor(Math.random() * links.length)];
+      const combined = getUserSeed() + '\0' + links.join('\n');
+      return links[Math.floor(mulberry32(fnv32(combined)) * links.length)];
+    }
+
+    // ─── URL shortening ───────────────────────────────────────────────────────
+
+    async function shortenUrl(url) {
+      const res = await fetch(
+        'https://is.gd/create.php?format=json&url=' + encodeURIComponent(url)
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data.shorturl) throw new Error(data.errormessage || 'No shorturl returned');
+      return data.shorturl;
+    }
+
+    function getBaseUrl() {
+      return window.location.origin + window.location.pathname.replace(/\/$/, '/');
+    }
+
+    // ─── SVG icons ────────────────────────────────────────────────────────────
+
+    const LOGO_SVG = `<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="9" fill="#6366f1"/>
+      <g stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M8 13h3.5l4 10 3-7.5 2 4L22 13h5.5"/>
+        <path d="M24.5 10l3 3-3 3"/>
+        <path d="M24.5 20l3 3-3 3"/>
+        <line x1="27.5" y1="13" x2="27.5" y2="23"/>
+      </g>
+    </svg>`;
+
+    const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8.5" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1 10V2.5A1.5 1.5 0 012.5 1H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+    const SHORTEN_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8.5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const GENERATE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5h3l2.5 7 2-5.5L11 9.5 12.5 5H14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2l2.5 2.5L12 7" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9l2.5 2.5L12 14" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="14.5" y1="4.5" x2="14.5" y2="11.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+    const REMOVE_ICON = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 1l11 11M12 1L1 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+    // ─── Editor state ─────────────────────────────────────────────────────────
+
+    let links = [];
+    let deterministic = true;
+    let generatedUrl = null;
+
+    // ─── Redirect view ────────────────────────────────────────────────────────
+
+    function renderRedirect(raw) {
+      let data;
+      try { data = decodePayload(raw); } catch {
+        renderError('This link appears to be broken or malformed.');
+        return;
+      }
+
+      const target = pickLink(data.l, !!data.d);
+
+      document.getElementById('app').innerHTML = `
+        <div class="center-view">
+          <div class="spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto"></div>
+          <h2>Redirecting&hellip;</h2>
+          <p>Taking you to your link</p>
+          <div class="redirect-url">${escHtml(target)}</div>
+        </div>
+      `;
+
+      setTimeout(() => { window.location.href = target; }, 500);
+    }
+
+    function renderError(msg) {
+      document.getElementById('app').innerHTML = `
+        <div class="center-view">
+          <div class="error-icon">⚠️</div>
+          <h2 class="error-title">Invalid Link</h2>
+          <p>${escHtml(msg)}</p>
+          <div class="action-gap">
+            <button class="btn btn-ghost" onclick="clearHash()">Go to Editor</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function clearHash() {
+      history.pushState('', document.title, window.location.pathname);
+      renderEditor();
+    }
+
+    // ─── Editor view ──────────────────────────────────────────────────────────
+
+    function renderEditor() {
+      const canGenerate = links.length >= 2;
+
+      const listHtml = links.length === 0
+        ? `<div class="empty-state">No links yet — add at least 2 to generate a link</div>`
+        : `<ul class="link-list" id="link-list">
+            ${links.map((l, i) => `
+              <li class="link-item">
+                <span class="link-item-text" title="${escHtml(l)}">${escHtml(l)}</span>
+                <button class="btn btn-icon" data-remove="${i}" title="Remove link" aria-label="Remove ${escHtml(l)}">
+                  ${REMOVE_ICON}
+                </button>
+              </li>
+            `).join('')}
+          </ul>
+          <div class="link-count">${links.length} link${links.length !== 1 ? 's' : ''}</div>`;
+
+      const outputHtml = generatedUrl ? `
+        <div class="output-section">
+          <span class="section-label">Generated Link</span>
+          <div class="output-box" id="output-url">${escHtml(generatedUrl)}</div>
+          <div class="output-actions">
+            <button class="btn btn-ghost" id="copy-btn">${COPY_ICON} Copy</button>
+            <button class="btn btn-ghost" id="shorten-btn">${SHORTEN_ICON} Shorten</button>
+            <span class="copy-feedback" id="copy-feedback" style="display:none"></span>
+          </div>
+        </div>
+      ` : '';
+
+      document.getElementById('app').innerHTML = `
+        <div class="logo">${LOGO_SVG}<h1>Link Randomizer</h1></div>
+        <p class="subtitle">Create a shareable link that opens a random URL from your list.</p>
+
+        <div class="section">
+          <span class="section-label">Links</span>
+          <div class="input-row">
+            <input type="url" id="link-input" placeholder="https://example.com" autocomplete="off" spellcheck="false" />
+            <button class="btn btn-primary" id="add-btn">Add</button>
+          </div>
+          ${listHtml}
+        </div>
+
+        <div class="section">
+          <span class="section-label">Behavior</span>
+          <label class="toggle-row" for="det-toggle">
+            <div class="toggle-info">
+              <div class="toggle-title">Deterministic per visitor</div>
+              <div class="toggle-desc">Each visitor always gets the same link — but a different one from other visitors</div>
+            </div>
+            <div class="toggle-switch">
+              <input type="checkbox" id="det-toggle" ${deterministic ? 'checked' : ''}>
+              <div class="toggle-slider"></div>
+            </div>
+          </label>
+        </div>
+
+        <hr class="divider" />
+
+        <button class="btn btn-primary btn-full" id="generate-btn" ${canGenerate ? '' : 'disabled'}>
+          ${GENERATE_ICON}
+          ${canGenerate ? 'Generate Link' : 'Add at least 2 links to generate'}
+        </button>
+
+        ${outputHtml}
+      `;
+
+      // ── Event listeners ──
+
+      const input = document.getElementById('link-input');
+
+      function tryAddLink() {
+        const val = input.value.trim();
+        if (!val) return;
+        if (!isSafeUrl(val)) {
+          input.classList.add('invalid');
+          input.focus();
+          setTimeout(() => input.classList.remove('invalid'), 1200);
+          return;
+        }
+        links.push(val);
+        input.value = '';
+        generatedUrl = null;
+        renderEditor();
+        document.getElementById('link-input')?.focus();
+      }
+
+      document.getElementById('add-btn').addEventListener('click', tryAddLink);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') tryAddLink(); });
+
+      document.getElementById('det-toggle').addEventListener('change', e => {
+        deterministic = e.target.checked;
+        generatedUrl = null; // regenerate with new setting
+      });
+
+      document.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          links.splice(parseInt(btn.dataset.remove), 1);
+          generatedUrl = null;
+          renderEditor();
+        });
+      });
+
+      document.getElementById('generate-btn').addEventListener('click', () => {
+        if (links.length < 2) return;
+        const payload = encodePayload(links, deterministic);
+        generatedUrl = getBaseUrl() + '#r=' + payload;
+        renderEditor();
+        document.getElementById('output-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        bindOutputActions();
+      });
+
+      if (generatedUrl) bindOutputActions();
+    }
+
+    function bindOutputActions() {
+      const copyBtn = document.getElementById('copy-btn');
+      const shortenBtn = document.getElementById('shorten-btn');
+      const feedback = document.getElementById('copy-feedback');
+      const outputUrl = document.getElementById('output-url');
+
+      if (!copyBtn || !shortenBtn) return;
+
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(outputUrl.textContent.trim());
+          showFeedback(feedback, 'Copied!');
+        } catch {
+          showFeedback(feedback, 'Copy failed');
+        }
+      });
+
+      shortenBtn.addEventListener('click', async () => {
+        shortenBtn.disabled = true;
+        shortenBtn.innerHTML = `<span class="spinner" style="width:13px;height:13px;border-width:1.5px"></span> Shortening…`;
+        try {
+          const short = await shortenUrl(outputUrl.textContent.trim());
+          // Validate the shortened URL is a real https URL
+          if (!isSafeUrl(short)) throw new Error('Invalid shorturl response');
+          outputUrl.textContent = short;
+          generatedUrl = short;
+          shortenBtn.style.display = 'none';
+          showFeedback(feedback, 'Shortened!');
+        } catch {
+          shortenBtn.disabled = false;
+          shortenBtn.innerHTML = `${SHORTEN_ICON} Retry shorten`;
+          showFeedback(feedback, 'Could not shorten — full URL kept', 3000);
+        }
+      });
+    }
+
+    function showFeedback(el, msg, duration = 2200) {
+      el.textContent = msg;
+      el.style.display = 'inline';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.display = 'none'; }, duration);
+    }
+
+    // ─── Router ───────────────────────────────────────────────────────────────
+
+    function route() {
+      const hash = window.location.hash.slice(1);
+      const payload = new URLSearchParams(hash).get('r');
+      if (payload) {
+        renderRedirect(payload);
+      } else {
+        renderEditor();
+      }
+    }
+
+    window.addEventListener('hashchange', route);
+    route();
+
+    // ─── Service Worker ───────────────────────────────────────────────────────
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
